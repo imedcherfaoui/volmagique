@@ -4,10 +4,10 @@
   Env-vars requis : CK_API_SECRET, CK_TAG_ID, GOOGLE_APPLICATION_CREDENTIALS
 */
 
-const { Firestore, Timestamp } = require("@google-cloud/firestore");
+import { Firestore, Timestamp } from "@google-cloud/firestore";
 import fetch from "node-fetch";
 
-const mjml = require("mjml");
+import mjml2html from "mjml";
 
 const PROJECT_ID = "volmagique-b1e7b";
 const MAX_DEALS = 10;
@@ -45,7 +45,7 @@ const db = new Firestore({ projectId: PROJECT_ID });
         `<tr><td>${d.origin}</td><td>${d.city}</td><td><b>${d.price} €</b></td></tr>`
     )
     .join("");
-  const html = mjml(`
+  const html = mjml2html(`
     <mjml><mj-body><mj-section><mj-column>
       <mj-text font-size="20px" font-weight="bold">
         ✈️ ${deals.length} fresh error-fares

@@ -1,8 +1,6 @@
 import fetch from "node-fetch";
 
-const cheerio = require("cheerio");
-
-const { Firestore, Timestamp } = require("@google-cloud/firestore");
+import { Firestore, Timestamp } from "@google-cloud/firestore";
 
 /* ---------- CONFIG ---------- */
 const ORIGINS = ["CDG", "ORY"]; // airports you want to scan
