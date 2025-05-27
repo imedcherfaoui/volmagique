@@ -1,13 +1,3 @@
-/* -------------------------------------------
-   VolMagique – Phase 2  ·  local → Firestore
-   -------------------------------------------
-   1. Edit PROJECT_ID below (line 17).
-   2. Make sure GOOGLE_APPLICATION_CREDENTIALS
-      points to your runner-sa.json when you run:
-         export GOOGLE_APPLICATION_CREDENTIALS="$PWD/../runner-sa.json"
-         node index.js
-------------------------------------------------*/
-
 const fetch = (...args) =>
   import("node-fetch").then(({ default: f }) => f(...args)); // node-fetch v3 ESM workaround
 const cheerio = require("cheerio");
@@ -16,8 +6,8 @@ const { Firestore, Timestamp } = require("@google-cloud/firestore");
 
 /* ---------- CONFIG ---------- */
 const ORIGINS = ["CDG", "ORY"]; // airports you want to scan
-const MAX_PRICE = 800; // € threshold – raise/lower anytime
-const PROJECT_ID = "volmagique-b1e7b"; // ← ❗ replace with your real Project ID
+const MAX_PRICE = 300; // € threshold – raise/lower anytime
+const PROJECT_ID = "volmagique-b1e7b"; // ← ❗ Project ID
 /* ----------------------------- */
 
 const db = new Firestore({ projectId: PROJECT_ID });
