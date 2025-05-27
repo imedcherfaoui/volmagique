@@ -1,5 +1,6 @@
 {
   "name": "01-scraper-local",
+  "type": "module",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,7 +11,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/firestore": "^7.11.1",
     "cheerio": "^1.0.0",
+    "mjml": "^4.15.3",
     "node-fetch": "^3.3.2"
   }
 }

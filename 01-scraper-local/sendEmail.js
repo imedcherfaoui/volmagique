@@ -5,7 +5,8 @@
 */
 
 const { Firestore, Timestamp } = require("@google-cloud/firestore");
-const fetch = (...a) => import("node-fetch").then(({ default: f }) => f(...a));
+import fetch from "node-fetch";
+
 const mjml = require("mjml");
 
 const PROJECT_ID = "volmagique-b1e7b";

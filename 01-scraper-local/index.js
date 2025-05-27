@@ -1,5 +1,5 @@
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: f }) => f(...args)); // node-fetch v3 ESM workaround
+import fetch from "node-fetch";
+
 const cheerio = require("cheerio");
 
 const { Firestore, Timestamp } = require("@google-cloud/firestore");
