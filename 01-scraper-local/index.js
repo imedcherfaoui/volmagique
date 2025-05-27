@@ -1,46 +1,70 @@
+/* -------------------------------------------
+   VolMagique – Phase 2  ·  local → Firestore
+   -------------------------------------------
+   1. Edit PROJECT_ID below (line 17).
+   2. Make sure GOOGLE_APPLICATION_CREDENTIALS
+      points to your runner-sa.json when you run:
+         export GOOGLE_APPLICATION_CREDENTIALS="$PWD/../runner-sa.json"
+         node index.js
+------------------------------------------------*/
+
 const fetch = (...args) =>
-  import("node-fetch").then(({ default: f }) => f(...args));
+  import("node-fetch").then(({ default: f }) => f(...args)); // node-fetch v3 ESM workaround
 const cheerio = require("cheerio");
 
-/*
-  Simple Google Flights Explore scraper (demo)
-  -------------------------------------------
-  1. Change origins in the ORIGINS array.
-  2. Run:   node index.js
-  3. You’ll see an array of cheap deals in the console.
-*/
+const { Firestore, Timestamp } = require("@google-cloud/firestore");
 
-const ORIGINS = ["CDG", "ORY"]; // Paris airports
-const MAX_PRICE = 150; // € threshold – adjust as you like
+/* ---------- CONFIG ---------- */
+const ORIGINS = ["CDG", "ORY"]; // airports you want to scan
+const MAX_PRICE = 800; // € threshold – raise/lower anytime
+const PROJECT_ID = "volmagique-b1e7b"; // ← ❗ replace with your real Project ID
+/* ----------------------------- */
 
-const scrape = async (origin) => {
-  // small variation of the Explore URL so Google doesn't block us instantly
+const db = new Firestore({ projectId: PROJECT_ID });
+
+/* Scrape Google Flights Explore for one origin city */
+async function scrape(origin) {
+  // TravelPayouts "Cheap Tickets" endpoint (last 48 h)
   const url =
-    `https://www.google.com/travel/explore?tfs=CBwQAhooEgoyMDI1LTA3LTA2agwIAhIIL20vMDF0eGhxQAFIUgA` +
-    `&tfu=KgIKAlBIMEgC&curr=EUR&hl=en-US&orig=${origin}`;
+    `https://api.travelpayouts.com/v2/prices/latest?origin=${origin}` +
+    `&currency=EUR&page=1&limit=30&token=${process.env.TP_TOKEN}`;
 
-  const html = await (await fetch(url)).text();
-  const $ = cheerio.load(html);
+  const { data } = await fetch(url).then((r) => r.json()); // pure JSON
 
   const deals = [];
-  $("div[role='listitem']").each((_, el) => {
-    const city = $(el).find("div[jsname='tYr6pf']").first().text();
-    const priceStr = $(el)
-      .find("div[jsname='IRqVMb']")
-      .text()
-      .replace(/[^\d]/g, "");
-    const price = parseInt(priceStr, 10);
+  for (const ticket of data) {
+    const price = ticket.value; // €
+    const city = ticket.destination; // e.g. "LIS"
     if (price && price <= MAX_PRICE) {
       deals.push({ origin, city, price });
     }
-  });
+  }
   return deals;
-};
+}
 
-const run = async () => {
-  const results = [];
-  for (const o of ORIGINS) results.push(...(await scrape(o)));
-  console.log(JSON.stringify(results, null, 2));
-};
+/* Main runner: scrapes → writes to Firestore in one batch */
+async function run() {
+  const allDeals = [];
+  for (const o of ORIGINS) allDeals.push(...(await scrape(o)));
+
+  if (!allDeals.length) {
+    console.log("No deals under €" + MAX_PRICE);
+    return;
+  }
+
+  const ts = Date.now();
+  const batch = db.batch();
+
+  allDeals.forEach((d) => {
+    const id = `${d.origin}_${d.city}_${d.price}_${ts}`;
+    batch.set(db.collection("deals").doc(id), {
+      ...d,
+      createdAt: Timestamp.fromMillis(ts),
+    });
+  });
+
+  await batch.commit();
+  console.log(`${allDeals.length} deals saved to Firestore ✅`);
+}
 
 run().catch(console.error);
