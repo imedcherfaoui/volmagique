@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Stats from "./pages/Stats";
+import Features from "./components/Features";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           element={
             <>
               <Hero />
+              <Features />
               <Pricing />
               <Footer />
             </>

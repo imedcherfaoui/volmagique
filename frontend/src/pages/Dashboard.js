@@ -3,6 +3,20 @@ import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "../components/ui/accordion";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function Dashboard() {
   const [deals, setDeals] = useState(null);
@@ -11,202 +25,203 @@ export default function Dashboard() {
   const [userInfo, setUserInfo] = useState(null);
   const nav = useNavigate();
 
-  // 1) Auth & fetch deals + premium status + user info
+  // 1) Auth + fetch
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        nav("/login", { replace: true });
-        return;
-      }
+      if (!user) return nav("/login", { replace: true });
       const email = encodeURIComponent(user.email);
-      // Check premium status
-      let premium = false;
-      try {
-        const r = await fetch(
-          `${process.env.REACT_APP_API_URL}/premium?email=${email}`
-        );
-        const j = await r.json();
-        premium = j.premium;
-      } catch (err) {
-        console.error("Premium check failed", err);
-      }
+      // premium
+      const { premium } = await fetch(
+        `${process.env.REACT_APP_API_URL}/premium?email=${email}`
+      )
+        .then((r) => r.json())
+        .catch(() => ({ premium: false }));
       setIsPremium(premium);
 
-      // Fetch user stats
-      try {
-        const r3 = await fetch(
-          `${process.env.REACT_APP_API_URL}/me?email=${email}`
-        );
-        console.log(
-          "User info fetch URL:",
-          `${process.env.REACT_APP_API_URL}/me?email=${email}`
-        );
-        const j3 = await r3.json();
-        console.log("User info response:", j3);
-        setUserInfo(j3);
-      } catch (err) {
-        console.error("User info fetch failed", err);
-      }
+      // userInfo
+      const ui = await fetch(
+        `${process.env.REACT_APP_API_URL}/me?email=${email}`
+      )
+        .then((r) => r.json())
+        .catch(() => null);
+      setUserInfo(ui);
 
-      // Fetch today's deals
-      try {
-        const r2 = await fetch(`${process.env.REACT_APP_API_URL}/deals`);
-        const j2 = await r2.json();
-        setDeals(j2.deals);
-      } catch (err) {
-        console.error("Deals fetch failed", err);
-        setDeals([]);
-      }
+      // today’s deals
+      const d = await fetch(`${process.env.REACT_APP_API_URL}/deals`)
+        .then((r) => r.json())
+        .then((j) => j.deals)
+        .catch(() => []);
+      setDeals(d);
     });
     return () => unsub();
   }, [nav]);
 
-  // 2) Fetch upcoming deals if premium
+  // 2) upcoming if premium
   useEffect(() => {
     if (deals !== null && isPremium) {
       fetch(`${process.env.REACT_APP_API_URL}/future?days=7`)
         .then((r) => r.json())
-        .then(({ upcoming }) => setFuture(upcoming))
-        .catch((err) => console.error("Future fetch failed", err));
+        .then((j) => setFuture(j.upcoming))
+        .catch(() => setFuture([]));
     }
   }, [deals, isPremium]);
 
-  // Loading state
   if (deals === null || !userInfo) {
-    return <div className="p-6 text-center">Loading…</div>;
+    return <div className="p-6 text-center">Chargement des données…</div>;
   }
 
-  // Show all for premium, top 3 for free
+  const todayCount = deals.length;
+  const upcomingCount = future.length;
+  const avgPrice = todayCount
+    ? (deals.reduce((s, d) => s + d.price, 0) / todayCount).toFixed(2)
+    : "—";
   const visibleDeals = isPremium ? deals : deals.slice(0, 3);
 
-  console.log("userInfo", userInfo);
+  // prepare chart data
+  const chartData = [
+    { name: "Aujourd’hui", count: todayCount },
+    ...(isPremium ? [{ name: "À venir", count: upcomingCount }] : []),
+  ];
+
   return (
-    <div className="container mx-auto p-6">
-      {/* Personal stats banner */}
-      <div className="mb-6 p-4 bg-blue-50 rounded">
-        <p>
-          Bonjour <strong>{auth.currentUser.email}</strong> ! Vous êtes abonné{" "}
-          <strong>{userInfo.tier === "premium" ? "Premium" : "Gratuit"}</strong>{" "}
-          depuis{" "}
-          <strong>{new Date(userInfo.since).toLocaleDateString()}</strong>. Vous
-          avez consulté <strong>{visibleDeals.length}</strong> offres
-          aujourd’hui.
-        </p>
+    <div className="container mx-auto p-6 space-y-8">
+      {/* header */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold truncate">
+          Bienvenue, <small>{auth.currentUser.email}</small>
+        </h1>
       </div>
 
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Today’s Deals</h2>
-      </div>
-
-      {/* Free-tier teaser */}
-      {!isPremium && (
-        <div className="mb-6 p-6 bg-gradient-to-r from-yellow-300 to-yellow-500 text-center rounded-lg shadow">
-          <h3 className="text-xl font-bold mb-2 text-red-800">
-            Vous utilisez la version gratuite !
-          </h3>
-          <p className="mb-4 text-red-700">
-            Découvrez seulement les 3 meilleures offres. Passez Premium pour
-            accéder à <strong>toutes</strong> les destinations <em>et</em> aux
-            vols à venir dans la semaine !
+      {/* user stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 bg-white rounded-lg shadow">
+          <h2 className="text-sm text-gray-500">Abonnement</h2>
+          <p className="text-xl font-semibold">
+            {userInfo.tier === "premium" ? "Premium" : "Gratuit"}
           </p>
-          <Button onClick={() => (window.location.href = "/#pricing")}>
-            Passez Premium
-          </Button>
+          <p className="text-xs text-gray-400">
+            depuis {new Date(userInfo.since).toLocaleDateString()}
+          </p>
         </div>
-      )}
-
-      {/* Manage subscription */}
-      <div className="mb-6 text-center">
-        <Button
-          onClick={async () => {
-            try {
-              const resp = await fetch(
-                `${process.env.REACT_APP_API_URL}/portal`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: auth.currentUser.email }),
-                }
-              );
-              const data = await resp.json();
-              if (!resp.ok) {
-                return alert(data.error || "Could not open portal.");
-              }
-              window.location.href = data.url;
-            } catch (err) {
-              console.error("Portal error:", err);
-              alert("Network error opening portal.");
-            }
-          }}
-        >
-          Gérer mon abonnement
-        </Button>
+        <div className="p-4 bg-white rounded-lg shadow">
+          <h2 className="text-sm text-gray-500">Offres aujourd’hui</h2>
+          <p className="text-xl font-semibold">{todayCount}</p>
+        </div>
+        {isPremium && (
+          <div className="p-4 bg-white rounded-lg shadow">
+            <h2 className="text-sm text-gray-500">Offres à venir</h2>
+            <p className="text-xl font-semibold">{upcomingCount}</p>
+          </div>
+        )}
+        <div className="p-4 bg-white rounded-lg shadow">
+          <h2 className="text-sm text-gray-500">Prix moyen (€)</h2>
+          <p className="text-xl font-semibold">{avgPrice}</p>
+        </div>
       </div>
 
-      {/* Upcoming Deals anchor */}
-      {isPremium && future.length > 0 && (
-        <div className="mt-10">
-          <h3 className="text-xl font-bold my-5">
-            <a href="#upcoming" className="text-indigo-600 hover:underline">
-              ⬇️ Aller aux offres à venir (7 prochains jours)
-            </a>
-          </h3>
+      {/* bar chart */}
+      <div className="bg-white p-4 rounded-lg shadow">
+        <h2 className="text-lg font-semibold mb-2">Comparatif Offres</h2>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={chartData}>
+            <XAxis dataKey="name" />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Bar dataKey="count" fill="#6366F1" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Today’s deals */}
+      {!isPremium && (
+        <div className="mt-4 text-center">
+          <p>
+            Seules les 3 premières sont visibles.{" "}
+            <Button
+              variant="indigowhite"
+              onClick={() => (window.location.href = "/#pricing")}
+            >
+              Passez Premium
+            </Button>
+          </p>
         </div>
       )}
+      <Accordion type="single" collapsible defaultValue="item-1">
+        <AccordionItem value="item-1">
+          <AccordionTrigger>
+            <h2 className="text-2xl font-bold mb-4">
+              Offres du jour <small>({todayCount} Offres)</small>
+            </h2>
+          </AccordionTrigger>
+          <AccordionContent className="max-h-[400px] overflow-y-auto">
+            <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {visibleDeals.map((d, i) => (
+                <li
+                  key={i}
+                  //nav to d.link in a new tab
+                  onClick={() => window.open(d.link, "_blank")}
+                  className="p-4 cursor-pointer bg-orange-300/20 rounded-lg shadow hover:shadow-lg transition flex flex-row justify-between items-center"
+                >
+                  <div>
+                    <a
+                      href={d.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-indigo-600 font-semibold hover:underline mb-1 text-lg underline underline-offset-2"
+                    >
+                      {d.origin} → {d.city}
+                    </a>
+                    <p className="text-gray-500 text-sm mb-2">
+                      {d.departureDate}
+                    </p>
+                  </div>
+                  <p className="text-3xl font-bold text-indigo-900">
+                    {d.price} €
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
-      {/* Today’s Deals list */}
-      <ul className="space-y-2">
-        {visibleDeals.map((d, i) => (
-          <li
-            key={i}
-            className="border p-2 rounded flex justify-between items-center"
-          >
-            <a
-              href={d.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              {d.origin} → {d.city}
-              <span className="ml-2 text-sm text-gray-600">
-                ({d.departureDate})
-              </span>
-            </a>
-            <span className="font-semibold">{d.price} €</span>
-          </li>
-        ))}
-      </ul>
+      {/* Upcoming deals */}
 
-      {/* Upcoming Deals for premium */}
       {isPremium && future.length > 0 && (
-        <div id="upcoming" className="mt-6">
-          <h3 className="text-xl font-bold mb-4">
-            Offres à venir (7 prochains jours)
-          </h3>
-          <ul className="space-y-2">
-            {future.map((d, i) => (
-              <li
-                key={i}
-                className="border p-2 rounded flex justify-between items-center"
-              >
-                <div>
-                  <a
-                    href={d.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+        <Accordion type="single" collapsible defaultValue="item-1">
+          <AccordionItem value="item-1">
+            <AccordionTrigger>
+              <h2 id="upcoming" className="text-2xl font-bold mb-4">
+                Offres à venir (7 jours) <small>({future.length} Offres)</small>
+              </h2>
+            </AccordionTrigger>
+            <AccordionContent className="max-h-[200px] overflow-y-auto">
+              <ul className="space-y-4">
+                {future.map((d, i) => (
+                  <li
+                    key={i}
+                    className="p-4 bg-orange-300/20 rounded-lg shadow hover:shadow-lg transition flex justify-between"
                   >
-                    {d.origin} → {d.city}
-                  </a>
-                  <span className="ml-2 text-sm text-gray-600">
-                    ({d.departureDate})
-                  </span>
-                </div>
-                <span className="font-semibold">{d.price} €</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+                    <div>
+                      <a
+                        href={d.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 font-semibold hover:underline mb-1 text-lg underline underline-offset-2"
+                      >
+                        {d.origin} → {d.city}
+                      </a>
+                      <p className="text-gray-500 text-sm">{d.departureDate}</p>
+                    </div>
+                    <p className="text-3xl font-bold text-indigo-900">
+                      {d.price} €
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
     </div>
   );

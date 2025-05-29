@@ -1,22 +1,29 @@
 import { Button } from "./ui/button";
-import { useNavigate } from "react-router-dom";
 
 export default function Hero() {
-  const navigate = useNavigate();
-
   return (
-    <header className="text-center py-20 bg-slate-50">
-      <h1 className="text-4xl font-extrabold mb-4">
-        Les erreurs tarifaires avion
-        <br />
-        directement dans votre boîte mail
+    <section className="relative h-screen flex flex-col justify-center items-center text-center bg-gradient-to-br from-indigo-600 to-blue-500">
+      <h1 className="text-5xl md:text-6xl font-extrabold text-white drop-shadow-lg">
+        Des vols pas chers, livrés chaque jour
       </h1>
-      <p className="mb-8 text-lg">
-        Recevez – ou ratez – la promo… à vous de choisir !
+      <p className="mt-4 text-xl text-indigo-100 max-w-2xl">
+        Découvrez les meilleures affaires de dernière minute directement dans
+        votre boîte mail. Passez Premium pour ne rien manquer.
       </p>
-      <Button onClick={() => navigate("/dashboard")}>
-        Voir les offres du jour 🚀
-      </Button>
-    </header>
+      <div className="mt-8 flex gap-4">
+        <Button
+          variant="indigowhite"
+          onClick={() => (window.location.href = "/#pricing")}
+        >
+          Voir les tarifs
+        </Button>
+        <Button
+          variant="indigowhite"
+          onClick={() => (window.location.href = "/login")}
+        >
+          Connexion
+        </Button>
+      </div>
+    </section>
   );
 }

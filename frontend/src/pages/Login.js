@@ -32,9 +32,20 @@ export default function Login() {
     if (isSignInWithEmailLink(auth, window.location.href)) {
       const savedEmail = window.localStorage.getItem("emailForSignIn");
       signInWithEmailLink(auth, savedEmail, window.location.href)
-        .then(() => {
+        .then(async () => {
           window.localStorage.removeItem("emailForSignIn");
-          nav("/dashboard", { replace: true });
+          // ─── NEW: register this user in Firestore + SendGrid ─────────────────────
+          try {
+              await fetch(`${process.env.REACT_APP_API_URL}/subscribe`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: savedEmail }),
+              });
+            } catch (err) {
+              console.error("Auto-subscribe failed:", err);
+            }
+            // ────────────────────────────────────────────────────────────────────────
+            nav("/dashboard", { replace: true });
         })
         .catch(console.error);
     }

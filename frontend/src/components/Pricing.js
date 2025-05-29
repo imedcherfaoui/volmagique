@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { Button } from "./ui/button";
+import PricingCard from "./PricingCard";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 
 const LIVE_CHECKOUT_URL = "https://buy.stripe.com/00w14o5Z673N9gI65Z4ow00";
 
 export default function Pricing() {
   const [user, setUser] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
+  const nav = useNavigate();
 
   useEffect(() => {
     // subscribe to auth
@@ -46,45 +50,45 @@ export default function Pricing() {
       <h2 className="text-3xl font-bold mb-8 text-center">
         Choisissez votre plan
       </h2>
-      <div className="grid sm:grid-cols-2 gap-8">
+      <motion.div
+        className={"grid gap-8 w-full px-5" + (showFree ? " md:grid-cols-2" : " md:grid-cols-1")}
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: {
+            transition: { staggerChildren: 0.2 },
+          },
+        }}
+      >
         {showFree && (
-          <Card
-            title="Daily (gratuit)"
+          <PricingCard
+            title="Daily (Gratuit)"
             price="0 €"
+            features={[
+              "Top 3 des meilleurs deals du jour",
+              "Alertes par e-mail quotidiennes (3 vols)",
+              "Aucun engagement",
+            ]}
             cta="S'inscrire"
-            onClick={async () => {
-              const email = prompt("Entrez votre email");
-              if (!email) return;
-              const res = await fetch(
-                `${process.env.REACT_APP_API_URL}/subscribe`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email }),
-                }
-              );
-              const json = await res.json();
-              alert(json.success ? "Abonné ✔" : `Erreur : ${json.error}`);
-            }}
+            onClick={() => nav("/login")}
           />
         )}
-        <Card
-          title={user ? "Passer à Premium" : "Premium"}
+
+        <PricingCard
+          recommended
+          title="Premium"
           price="4,99 € / mois"
+          features={[
+            "Tous des deals du jour",
+            "Alertes par e-mail instantanées (10 vols)",
+            "Accès aux \"Vols à venir\" (vols dans la semaine)",
+            "Support prioritaire",
+          ]}
           cta="Voir les détails"
           onClick={() => (window.location.href = LIVE_CHECKOUT_URL)}
         />
-      </div>
+      </motion.div>
     </section>
-  );
-}
-
-function Card({ title, price, cta, onClick }) {
-  return (
-    <div className="border rounded-2xl p-6 shadow-sm flex flex-col items-center">
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-brand text-2xl mb-6">{price}</p>
-      <Button onClick={onClick}>{cta}</Button>
-    </div>
   );
 }

@@ -42,17 +42,31 @@ async function scrape(origin) {
 
 /* Main runner: scrapes → writes to Firestore in one batch */
 async function run() {
+  // 1) scrape all origins
   const allDeals = [];
-  for (const o of ORIGINS) allDeals.push(...(await scrape(o)));
+  for (const o of ORIGINS) {
+    allDeals.push(...(await scrape(o)));
+  }
 
-  if (!allDeals.length) {
+  // 2) dedupe by origin+city
+  const seen = new Set();
+  const uniqueDeals = allDeals.filter((d) => {
+    const key = `${d.origin}_${d.city}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const finalDeals = uniqueDeals;
+
+  if (!finalDeals.length) {
     console.log("No deals under €" + MAX_PRICE);
     return;
   }
 
   const ts = Date.now();
   const batch = db.batch();
-  allDeals.forEach((d) => {
+  finalDeals.forEach((d) => {
     const id = `${d.origin}_${d.city}_${d.price}_${ts}`;
     batch.set(db.collection("deals").doc(id), {
       ...d,

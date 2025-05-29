@@ -20,6 +20,12 @@ app.use(express.json());
 
 // Admin auth
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
+const stripe = new Stripe(process.env.STRIPE_SECRET, {
+  apiVersion: "2023-10-16",
+});
+
+
 function checkAdmin(req, res, next) {
   if (req.headers["x-admin-secret"] !== ADMIN_SECRET) {
     return res.status(403).json({ error: "Forbidden" });
@@ -187,14 +193,51 @@ app.get("/send", checkAdmin, async (req, res) => {
   }
 });
 
+// Listen for Stripe webhooks
 app.post(
   "/webhook",
   bodyParser.raw({ type: "application/json" }),
   async (req, res) => {
-    // webhook logic unchanged
+    const sig = req.headers["stripe-signature"];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("⚠️  Webhook signature verification failed.", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the checkout.session.completed event
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const email = session.customer_details.email;
+
+      try {
+        // Upgrade them in Firestore
+        await db.collection("subscribers").doc(email).set(
+          {
+            email,
+            tier: "premium",
+            createdAt: Timestamp.now(),
+          },
+          { merge: true } // merge so we don't wipe other fields
+        );
+        console.log("✅ Upgraded to premium in Firestore:", email);
+      } catch (fireErr) {
+        console.error("❌ Firestore update failed:", fireErr);
+      }
+    }
+
+    // Return a 200 to Stripe
     res.json({ received: true });
   }
 );
+
 
 /**
  * GET /premium?email=you@example.com
