@@ -1,25 +1,28 @@
-# cloudbuild.yaml — Cloud Build pipeline
+# cloudbuild.yaml
+options:
+  # send build logs directly to Cloud Logging instead of a GCS bucket
+  logging: CLOUD_LOGGING_ONLY
 
 steps:
-  # 1) Build a Docker image and tag it with the Git SHA
+  # 1) Build your container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       [
         'build',
         '-t',
         'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA',
-        '.'
+        '.',
       ]
 
-  # 2) Push that image up to Artifact Registry
+  # 2) Push it up to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       [
         'push',
-        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA'
+        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA',
       ]
 
-  # 3) Deploy the newly-built image to Cloud Run
+  # 3) Deploy it to Cloud Run, wiring up your secrets
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -35,9 +38,8 @@ steps:
         'managed',
         '--allow-unauthenticated',
         '--min-instances=0',
-        '--update-secrets=ADMIN_SECRET:latest,SENDGRID_API_KEY:latest,STRIPE_SECRET:latest,STRIPE_WEBHOOK_SECRET:latest'
+        '--update-secrets=ADMIN_SECRET:latest,SENDGRID_API_KEY:latest,STRIPE_SECRET:latest,STRIPE_WEBHOOK_SECRET:latest',
       ]
 
 images:
-  # Tell Cloud Build to store this image in its build artifacts
   - 'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA'
