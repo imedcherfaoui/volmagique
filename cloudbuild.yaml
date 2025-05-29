@@ -1,0 +1,43 @@
+# cloudbuild.yaml — Cloud Build pipeline
+
+steps:
+  # 1) Build a Docker image and tag it with the Git SHA
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'build',
+        '-t',
+        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA',
+        '.'
+      ]
+
+  # 2) Push that image up to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'push',
+        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA'
+      ]
+
+  # 3) Deploy the newly-built image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      [
+        'run',
+        'deploy',
+        'volmagique-core',
+        '--image',
+        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA',
+        '--region',
+        'europe-west1',
+        '--platform',
+        'managed',
+        '--allow-unauthenticated',
+        '--min-instances=0',
+        '--update-secrets=ADMIN_SECRET:latest,SENDGRID_API_KEY:latest,STRIPE_SECRET:latest,STRIPE_WEBHOOK_SECRET:latest'
+      ]
+
+images:
+  # Tell Cloud Build to store this image in its build artifacts
+  - 'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA'

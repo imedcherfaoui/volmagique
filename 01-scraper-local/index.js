@@ -24,7 +24,17 @@ async function scrape(origin) {
     const price = ticket.value; // €
     const city = ticket.destination; // e.g. "LIS"
     if (price && price <= MAX_PRICE) {
-      deals.push({ origin, city, price });
+      // 1) Extract departure date from the API response
+      const departureDate = ticket.depart_date; // e.g. "2025-06-10"
+
+      // 2) Build a search link including the date
+      const query = `Flights to ${city} from ${origin} on ${departureDate}`;
+      const link =
+        `https://www.google.com/travel/flights?hl=en` +
+        `&q=${encodeURIComponent(query)}`;
+
+      // 3) Store it
+      deals.push({ origin, city, price, link, departureDate });
     }
   }
   return deals;
@@ -42,7 +52,6 @@ async function run() {
 
   const ts = Date.now();
   const batch = db.batch();
-
   allDeals.forEach((d) => {
     const id = `${d.origin}_${d.city}_${d.price}_${ts}`;
     batch.set(db.collection("deals").doc(id), {
@@ -53,6 +62,14 @@ async function run() {
 
   await batch.commit();
   console.log(`${allDeals.length} deals saved to Firestore ✅`);
+
+  // 🔥 LOG the scrape run
+  await db.collection("logs").add({
+    type: "scrape",
+    timestamp: Timestamp.fromMillis(ts),
+    count: allDeals.length,
+  });
+  console.log("Scrape logged");
 }
 
 run().catch(console.error);
