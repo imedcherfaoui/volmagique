@@ -1,45 +1,37 @@
-# cloudbuild.yaml
-options:
-  # send build logs directly to Cloud Logging instead of a GCS bucket
-  logging: CLOUD_LOGGING_ONLY
-
 steps:
-  # 1) Build your container image
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: "gcr.io/cloud-builders/docker"
     args:
       [
-        'build',
-        '-t',
-        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA',
-        '.',
+        "build",
+        "-t",
+        "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA",
+        ".",
       ]
-
-  # 2) Push it up to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: "gcr.io/cloud-builders/docker"
     args:
       [
-        'push',
-        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA',
+        "push",
+        "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA",
       ]
-
-  # 3) Deploy it to Cloud Run, wiring up your secrets
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: gcloud
-    args:
-      [
-        'run',
-        'deploy',
-        'volmagique-core',
-        '--image',
-        'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA',
-        '--region',
-        'europe-west1',
-        '--platform',
-        'managed',
-        '--allow-unauthenticated',
-        '--min-instances=0',
-        '--update-secrets=ADMIN_SECRET:latest,SENDGRID_API_KEY:latest,STRIPE_SECRET:latest,STRIPE_WEBHOOK_SECRET:latest',
+    args: [
+        "run",
+        "deploy",
+        "volmagique-core",
+        "--image",
+        "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA",
+        "--region",
+        "europe-west1",
+        "--platform",
+        "managed",
+        "--allow-unauthenticated",
+        "--min-instances=0",
+        # use the newer --set-secrets flag, one per env var:
+        "--set-secrets=ADMIN_SECRET=ADMIN_SECRET:latest",
+        "--set-secrets=SENDGRID_API_KEY=SENDGRID_API_KEY:latest",
+        "--set-secrets=STRIPE_SECRET=STRIPE_SECRET:latest",
+        "--set-secrets=STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest",
       ]
-
 images:
-  - 'europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA'
+  - "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA"
