@@ -1,37 +1,31 @@
 steps:
-  - name: "gcr.io/cloud-builders/docker"
+  - name: gcr.io/cloud-builders/docker
     args:
-      [
-        "build",
-        "-t",
-        "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA",
-        ".",
-      ]
-  - name: "gcr.io/cloud-builders/docker"
+      - build
+      - -t
+      - europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:latest
+      - .
+  - name: gcr.io/cloud-builders/docker
     args:
-      [
-        "push",
-        "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA",
-      ]
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+      - push
+      - europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:latest
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
-    args: [
-        "run",
-        "deploy",
-        "volmagique-core",
-        "--image",
-        "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA",
-        "--region",
-        "europe-west1",
-        "--platform",
-        "managed",
-        "--allow-unauthenticated",
-        "--min-instances=0",
-        # use the newer --set-secrets flag, one per env var:
-        "--set-secrets=ADMIN_SECRET=ADMIN_SECRET:latest",
-        "--set-secrets=SENDGRID_API_KEY=SENDGRID_API_KEY:latest",
-        "--set-secrets=STRIPE_SECRET=STRIPE_SECRET:latest",
-        "--set-secrets=STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest",
-      ]
+    args:
+      - run
+      - deploy
+      - volmagique-core
+      - --image
+      - europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:latest
+      - --region
+      - europe-west1
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --min-instances=0
+      - --set-secrets=ADMIN_SECRET=ADMIN_SECRET:latest
+      - --set-secrets=SENDGRID_API_KEY=SENDGRID_API_KEY:latest
+      - --set-secrets=STRIPE_SECRET=STRIPE_SECRET:latest
+      - --set-secrets=STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest
 images:
-  - "europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:$SHORT_SHA"
+  - europe-west1-docker.pkg.dev/volmagique-b1e7b/volmagique/core:latest

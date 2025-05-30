@@ -18,8 +18,15 @@ export default function Pricing() {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
-        // check if they’re premium
-        fetch(`${process.env.REACT_APP_API_URL}/premium?email=${u.email}`)
+        // 1) force-sync subscription status in Firestore
+        fetch(`${process.env.REACT_APP_API_URL}/sync?email=${u.email}`)
+          .then((r) => r.json())
+          .then(() => {
+            // 2) now check the updated tier
+            return fetch(
+              `${process.env.REACT_APP_API_URL}/premium?email=${u.email}`
+            );
+          })
           .then((r) => r.json())
           .then(({ premium }) => setIsPremium(premium))
           .catch(console.error);
@@ -31,7 +38,7 @@ export default function Pricing() {
   // 1) Premium users see a banner + manage button
   if (user && isPremium) {
     return (
-      <section className="py-16 container mx-auto text-center">
+      <section id="pricing" className="py-16 container mx-auto text-center">
         <h2 className="text-3xl font-bold mb-4">Vous êtes déjà Premium 🎉</h2>
         <p className="mb-8">
           Profitez de tous les avantages sans interruption.
@@ -51,7 +58,10 @@ export default function Pricing() {
         Choisissez votre plan
       </h2>
       <motion.div
-        className={"grid gap-8 w-full px-5" + (showFree ? " md:grid-cols-2" : " md:grid-cols-1")}
+        className={
+          "grid gap-8 w-full px-5" +
+          (showFree ? " md:grid-cols-2" : " md:grid-cols-1")
+        }
         initial="hidden"
         animate="visible"
         variants={{
@@ -68,9 +78,8 @@ export default function Pricing() {
             features={[
               "Top 3 des meilleurs deals du jour",
               "Alertes par e-mail quotidiennes (3 vols)",
-              "Aucun engagement",
             ]}
-            cta="S'inscrire"
+            cta="S'inscrire aux alertes quotidiennes"
             onClick={() => nav("/login")}
           />
         )}
@@ -80,12 +89,13 @@ export default function Pricing() {
           title="Premium"
           price="4,99 € / mois"
           features={[
-            "Tous des deals du jour",
-            "Alertes par e-mail instantanées (10 vols)",
-            "Accès aux \"Vols à venir\" (vols dans la semaine)",
-            "Support prioritaire",
+            "✈️ Accès illimité aux meilleures offres du jour (jusqu’à 10 deals quotidiens)",
+            "🔮 “Vols à venir” : consultez les offres pour les 7 jours à venir",
+            "⚡ Alertes e-mail instantanées dès qu’un deal correspond à vos critères",
+            "🤝 Support prioritaire (réponse sous 24 h ouvrées)",
+            "🔄 Aucun engagement : résiliez à tout moment",
           ]}
-          cta="Voir les détails"
+          cta="Passer à Premium"
           onClick={() => (window.location.href = LIVE_CHECKOUT_URL)}
         />
       </motion.div>

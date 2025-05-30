@@ -97,15 +97,6 @@ export default function Admin() {
             Send Premium Broadcast
           </Button>
         </div>
-        <Button
-          variant="destructive"
-          onClick={() => {
-            auth.signOut();
-            nav("/");
-          }}
-        >
-          Se déconnecter
-        </Button>
       </div>
 
       {/* Overview cards */}

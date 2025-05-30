@@ -9,6 +9,24 @@ import { Firestore, Timestamp } from "@google-cloud/firestore";
 import sgMail from "@sendgrid/mail";
 import bodyParser from "body-parser";
 
+// After imports...
+async function webhookHandlerFunction(req, res) {
+  const sig = req.headers["stripe-signature"];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error("⚠️  Webhook signature verification failed.", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  // …existing event.type logic…
+  res.json({ received: true });
+}
+
 // Initialize SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -16,6 +34,105 @@ const app = express();
 
 // CORS
 app.use(cors({ origin: ["http://localhost:3000", "https://volmagique.com"] }));
+
+// ─── Webhook must see RAW body ─────────────────────────────────────────────
+app.post(
+  "/webhook",
+  bodyParser.raw({ type: "application/json" }),
+  async (req, res) => {
+    console.log("➡️ [webhook] Received raw webhook, length:", req.body.length);
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        req.headers["stripe-signature"],
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("⚠️ [webhook] Signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Helper to resolve an email from various objects
+    async function resolveEmail(obj) {
+      if (obj.customer_details?.email) return obj.customer_details.email;
+      if (obj.customer_email) return obj.customer_email;
+      if (obj.customer) {
+        const cust = await stripe.customers.retrieve(obj.customer);
+        return cust.email;
+      }
+      throw new Error("Could not resolve email from webhook object");
+    }
+
+    try {
+      let email;
+      switch (event.type) {
+        case "checkout.session.completed":
+          console.log("🔔 [webhook] Event: checkout.session.completed");
+          email = await resolveEmail(event.data.object);
+          break;
+
+        case "customer.subscription.created":
+          console.log("🔔 [webhook] Event: customer.subscription.created");
+          email = await resolveEmail(event.data.object);
+          break;
+
+        case "invoice.paid":
+          console.log("🔔 [webhook] Event: invoice.paid");
+          // event.data.object is an invoice; need to fetch the subscription to get customer_details
+          const invoice = event.data.object;
+          const subscription = await stripe.subscriptions.retrieve(
+            invoice.subscription
+          );
+          email = await resolveEmail(subscription);
+          break;
+
+        default:
+          console.log("ℹ️ [webhook] Ignoring event type:", event.type);
+          return res.json({ received: true });
+      }
+
+      console.log(`✏️ [webhook] Upgrading Firestore subscriber: ${email}`);
+      await db
+        .collection("subscribers")
+        .doc(email)
+        .set(
+          { email, tier: "premium", upgradedAt: Timestamp.now() },
+          { merge: true }
+        );
+      console.log(`✅ [webhook] Tier set to PREMIUM for ${email}`);
+
+      // ─── Envoi de l’email de confirmation ───────────────────────────
+      try {
+        await sgMail.send({
+          to: email,
+          from: { email: "deals.volmagique@gmail.com", name: "VolMagique" },
+          templateId: process.env.SENDGRID_CONFIRMATION_TEMPLATE_ID,
+          dynamicTemplateData: {
+            email,
+            date: new Date().toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            }),
+            plan: "Premium",
+          },
+        });
+        console.log(`✉️ Confirmation envoyée à ${email}`);
+      } catch (mailErr) {
+        console.error("❌ Erreur d’envoi de l’email de confirmation:", mailErr);
+      }
+      // ────────────────────────────────────────────────────────────────
+
+      return res.json({ received: true });
+    } catch (err) {
+      console.error("❌ [webhook] Processing error:", err);
+      return res.status(500).send();
+    }
+  }
+);
+
+// JSON parser for *all other* routes
 app.use(express.json());
 
 // Admin auth
@@ -24,7 +141,6 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const stripe = new Stripe(process.env.STRIPE_SECRET, {
   apiVersion: "2023-10-16",
 });
-
 
 function checkAdmin(req, res, next) {
   if (req.headers["x-admin-secret"] !== ADMIN_SECRET) {
@@ -193,52 +309,6 @@ app.get("/send", checkAdmin, async (req, res) => {
   }
 });
 
-// Listen for Stripe webhooks
-app.post(
-  "/webhook",
-  bodyParser.raw({ type: "application/json" }),
-  async (req, res) => {
-    const sig = req.headers["stripe-signature"];
-    let event;
-
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      console.error("⚠️  Webhook signature verification failed.", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the checkout.session.completed event
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      const email = session.customer_details.email;
-
-      try {
-        // Upgrade them in Firestore
-        await db.collection("subscribers").doc(email).set(
-          {
-            email,
-            tier: "premium",
-            createdAt: Timestamp.now(),
-          },
-          { merge: true } // merge so we don't wipe other fields
-        );
-        console.log("✅ Upgraded to premium in Firestore:", email);
-      } catch (fireErr) {
-        console.error("❌ Firestore update failed:", fireErr);
-      }
-    }
-
-    // Return a 200 to Stripe
-    res.json({ received: true });
-  }
-);
-
-
 /**
  * GET /premium?email=you@example.com
  * Returns { premium: true|false } by checking Firestore `subscribers` tier.
@@ -260,6 +330,51 @@ app.get("/premium", async (req, res) => {
   } catch (err) {
     console.error("/premium error:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /sync?email=you@example.com
+ * Forces a Firestore update based on Stripe subscription status.
+ */
+app.get("/sync", async (req, res) => {
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: "Email required" });
+
+  try {
+    // 1) Find the Stripe Customer
+    const customers = await stripe.customers.list({ email, limit: 1 });
+    if (!customers.data.length) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+    const customerId = customers.data[0].id;
+
+    // 2) List active subscriptions for that customer
+    const subs = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "active",
+      limit: 1,
+    });
+    const isPremium = subs.data.length > 0;
+
+    // 3) Write to Firestore
+    await db
+      .collection("subscribers")
+      .doc(email)
+      .set(
+        {
+          email,
+          tier: isPremium ? "premium" : "free",
+          // optional: only overwrite createdAt on upgrade
+          ...(isPremium && { upgradedAt: Timestamp.now() }),
+        },
+        { merge: true }
+      );
+
+    return res.json({ premium: isPremium });
+  } catch (err) {
+    console.error("/sync error:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -289,41 +404,47 @@ app.post("/portal", async (req, res) => {
 
 /**
  * GET /deals
- * Returns today’s scraped deals as JSON.
+ * Returns today’s scraped deals as JSON (based on lastUpdated).
  */
 app.get("/deals", async (_, res) => {
   try {
+    // midnight today
     const midnight = new Date();
     midnight.setHours(0, 0, 0, 0);
+
+    // Query for deals touched since midnight
     const snap = await db
       .collection("deals")
-      .where("createdAt", ">=", Timestamp.fromDate(midnight))
+      .where("lastUpdated", ">=", Timestamp.fromDate(midnight))
+      // Firestore requires any inequality field to be first in orderBy
+      .orderBy("lastUpdated", "desc")
       .orderBy("price", "asc")
       .get();
-    res.json({ deals: snap.docs.map((d) => d.data()) });
+
+    const deals = snap.docs.map((d) => d.data());
+    res.json({ deals });
   } catch (err) {
     console.error("/deals error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
+
 /**
  * GET /future?days=7
- * Returns deals departing in the next `days` days (default 7).
+ * Returns deals departing in the next `days` days.
  */
 app.get("/future", async (req, res) => {
   try {
     const days = parseInt(req.query.days || "7", 10);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const cutoff = new Date(today);
     cutoff.setDate(cutoff.getDate() + days);
 
-    const snap = await db
-      .collection("deals")
-      .where("createdAt", ">=", Timestamp.fromDate(today))
-      .get();
-
+    // Fetch all deals (you could optimize with an index on departureDate)
+    const snap = await db.collection("deals").get();
     const upcoming = snap.docs
       .map((d) => d.data())
       .filter((d) => {
@@ -338,6 +459,7 @@ app.get("/future", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 /**
  * GET /subscribers

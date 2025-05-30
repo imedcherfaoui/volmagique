@@ -36,16 +36,16 @@ export default function Login() {
           window.localStorage.removeItem("emailForSignIn");
           // ─── NEW: register this user in Firestore + SendGrid ─────────────────────
           try {
-              await fetch(`${process.env.REACT_APP_API_URL}/subscribe`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: savedEmail }),
-              });
-            } catch (err) {
-              console.error("Auto-subscribe failed:", err);
-            }
-            // ────────────────────────────────────────────────────────────────────────
-            nav("/dashboard", { replace: true });
+            await fetch(`${process.env.REACT_APP_API_URL}/subscribe`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: savedEmail }),
+            });
+          } catch (err) {
+            console.error("Auto-subscribe failed:", err);
+          }
+          // ────────────────────────────────────────────────────────────────────────
+          nav("/dashboard", { replace: true });
         })
         .catch(console.error);
     }
@@ -56,7 +56,9 @@ export default function Login() {
     e.preventDefault();
     await sendSignInLinkToEmail(auth, email, actionCodeSettings);
     window.localStorage.setItem("emailForSignIn", email);
-    alert("✔️ Check your inbox for the login link!");
+    alert(
+      "✔️ Un lien de connexion a été envoyé à votre email. Veuillez vérifier votre boîte de réception ou dossier spam."
+    );
   };
 
   return (
@@ -64,16 +66,18 @@ export default function Login() {
       onSubmit={handleSubmit}
       className="max-w-md mx-auto p-6 space-y-4 text-center"
     >
-      <h2 className="text-2xl font-bold">Premium Login</h2>
+      <h2 className="text-xl font-bold">
+        Se connecter / S'inscrire aux mails quotidiens de VolMagique
+      </h2>
       <input
         type="email"
         required
-        placeholder="you@example.com"
+        placeholder="Entrez votre email ici pour vous connecter"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         className="w-full p-2 border rounded"
       />
-      <Button type="submit">Send login link</Button>
+      <Button type="submit">Envoyer le lien de connexion</Button>
     </form>
   );
 }

@@ -28,28 +28,33 @@ export default function Dashboard() {
   // 1) Auth + fetch
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) return nav("/login", { replace: true });
-      const email = encodeURIComponent(user.email);
-      // premium
-      const { premium } = await fetch(
-        `${process.env.REACT_APP_API_URL}/premium?email=${email}`
-      )
-        .then((r) => r.json())
-        .catch(() => ({ premium: false }));
-      setIsPremium(premium);
+      if (user) {
+        const email = encodeURIComponent(user.email);
+        // premium
+        const { premium } = await fetch(
+          `${process.env.REACT_APP_API_URL}/premium?email=${email}`
+        )
+          .then((r) => r.json())
+          .catch(() => ({ premium: false }));
+        setIsPremium(premium);
 
-      // userInfo
-      const ui = await fetch(
-        `${process.env.REACT_APP_API_URL}/me?email=${email}`
-      )
-        .then((r) => r.json())
-        .catch(() => null);
-      setUserInfo(ui);
+        // userInfo
+        const ui = await fetch(
+          `${process.env.REACT_APP_API_URL}/me?email=${email}`
+        )
+          .then((r) => r.json())
+          .catch(() => null);
+        setUserInfo(ui);
+      } else {
+        // no user → default to free
+        setIsPremium(false);
+        setUserInfo(null);
+      }
 
-      // today’s deals
+      // in all cases, fetch today’s deals
       const d = await fetch(`${process.env.REACT_APP_API_URL}/deals`)
         .then((r) => r.json())
-        .then((j) => j.deals)
+        .then((j) => (Array.isArray(j.deals) ? j.deals : []))
         .catch(() => []);
       setDeals(d);
     });
@@ -66,16 +71,38 @@ export default function Dashboard() {
     }
   }, [deals, isPremium]);
 
-  if (deals === null || !userInfo) {
+  // only wait when deals haven’t loaded; userInfo can be null for guests
+  if (deals === null) {
     return <div className="p-6 text-center">Chargement des données…</div>;
   }
 
-  const todayCount = deals.length;
+  // Helper: convert Firestore Timestamp (firstSeen, createdAt, or lastUpdated) to a date string
+  const convertToDate = (ts) => {
+    if (!ts) return null;
+    const seconds = ts._seconds ?? ts.seconds;
+    const nanos = ts._nanoseconds ?? ts.nanoseconds ?? 0;
+    return new Date(seconds * 1000 + nanos / 1000000).toDateString();
+  };
+
+  // Only keep one deal per origin-city for today
+  const uniqueDeals = Array.isArray(deals)
+    ? Array.from(
+        new Map(deals.map((d) => [`${d.origin}_${d.city}`, d])).values()
+      )
+    : [];
+
+  const todayDeals = uniqueDeals.filter((d) => {
+    // Use firstSeen (when deal first appeared), fallback to createdAt or lastUpdated
+    const dateStr = convertToDate(d.firstSeen || d.createdAt || d.lastUpdated);
+    return dateStr === new Date().toDateString();
+  });
+
+  const todayCount = todayDeals.length;
   const upcomingCount = future.length;
   const avgPrice = todayCount
-    ? (deals.reduce((s, d) => s + d.price, 0) / todayCount).toFixed(2)
+    ? (todayDeals.reduce((s, d) => s + d.price, 0) / todayCount).toFixed(2)
     : "—";
-  const visibleDeals = isPremium ? deals : deals.slice(0, 3);
+  const visibleDeals = isPremium ? todayDeals : todayDeals.slice(0, 3);
 
   // prepare chart data
   const chartData = [
@@ -86,23 +113,27 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto p-6 space-y-8">
       {/* header */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold truncate">
-          Bienvenue, <small>{auth.currentUser.email}</small>
-        </h1>
-      </div>
+      {userInfo && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold truncate">
+            Bienvenue, <small>{auth.currentUser.email}</small>
+          </h1>
+        </div>
+      )}
 
       {/* user stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 bg-white rounded-lg shadow">
-          <h2 className="text-sm text-gray-500">Abonnement</h2>
-          <p className="text-xl font-semibold">
-            {userInfo.tier === "premium" ? "Premium" : "Gratuit"}
-          </p>
-          <p className="text-xs text-gray-400">
-            depuis {new Date(userInfo.since).toLocaleDateString()}
-          </p>
-        </div>
+        {userInfo && (
+          <div className="p-4 bg-white rounded-lg shadow">
+            <h2 className="text-sm text-gray-500">Abonnement</h2>
+            <p className="text-xl font-semibold">
+              {userInfo.tier === "premium" ? "Premium" : "Gratuit"}
+            </p>
+            <p className="text-xs text-gray-400">
+              depuis {new Date(userInfo.since).toLocaleDateString()}
+            </p>
+          </div>
+        )}
         <div className="p-4 bg-white rounded-lg shadow">
           <h2 className="text-sm text-gray-500">Offres aujourd’hui</h2>
           <p className="text-xl font-semibold">{todayCount}</p>
@@ -135,10 +166,14 @@ export default function Dashboard() {
       {/* Today’s deals */}
       {!isPremium && (
         <div className="mt-4 text-center">
-          <p>
-            Seules les 3 premières sont visibles.{" "}
+          <p className="text-gray-600 mb-2">
+            <span className="font-bold me-1">
+              Seules les 3 premières sont visibles,
+            </span>
+            pour voir toutes les offres, et les offres à venir
             <Button
-              variant="indigowhite"
+              className="ml-2"
+              variant="premium"
               onClick={() => (window.location.href = "/#pricing")}
             >
               Passez Premium
@@ -147,7 +182,10 @@ export default function Dashboard() {
         </div>
       )}
       <Accordion type="single" collapsible defaultValue="item-1">
-        <AccordionItem value="item-1">
+        <AccordionItem
+          value="item-1"
+          className="bg-slate-100/50 hover:bg-slate-200/50 transition px-2 rounded-lg"
+        >
           <AccordionTrigger>
             <h2 className="text-2xl font-bold mb-4">
               Offres du jour <small>({todayCount} Offres)</small>
@@ -189,7 +227,10 @@ export default function Dashboard() {
 
       {isPremium && future.length > 0 && (
         <Accordion type="single" collapsible defaultValue="item-1">
-          <AccordionItem value="item-1">
+          <AccordionItem
+            value="item-1"
+            className="bg-slate-100/50 hover:bg-slate-200/50 transition px-2 rounded-lg"
+          >
             <AccordionTrigger>
               <h2 id="upcoming" className="text-2xl font-bold mb-4">
                 Offres à venir (7 jours) <small>({future.length} Offres)</small>

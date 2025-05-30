@@ -1,14 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
 import { Button } from "./ui/button";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { pathname } = useLocation();
   // Si on n’est pas déjà sur la home, on préfixe d’un slash
   const prefix = pathname === "/" ? "" : "/";
   const nav = useNavigate();
+
+  useEffect(() => {
+    //check if the user is authenticated and stock the auth state in isAuthenticated
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setIsAuthenticated(!!user);
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm shadow-sm">
@@ -32,7 +41,7 @@ export default function Navbar() {
           <a href="/dashboard" className="hover:text-indigo-600 font-medium">
             Vols à venir
           </a>
-          {auth.currentUser && (
+          {isAuthenticated && (
             <div className="space-x-2">
               <Button
                 variant="destructive"
@@ -92,6 +101,7 @@ export default function Navbar() {
           >
             Vols à venir
           </a>
+          {isAuthenticated && (
           <div className="px-4 py-2">
             <Button
               variant="destructive"
@@ -103,6 +113,7 @@ export default function Navbar() {
               Déconnexion
             </Button>
           </div>
+          )}
         </div>
       )}
     </nav>

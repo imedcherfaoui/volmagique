@@ -40,7 +40,7 @@ async function scrape(origin) {
   return deals;
 }
 
-/* Main runner: scrapes → writes to Firestore in one batch */
+/* Main runner: scrapes → writes to Firestore en upsert */
 async function run() {
   // 1) scrape all origins
   const allDeals = [];
@@ -48,42 +48,50 @@ async function run() {
     allDeals.push(...(await scrape(o)));
   }
 
-  // 2) dedupe by origin+city
+  // 2) Optional: dédupe locale rapide (origin+city+date+prix)
   const seen = new Set();
   const uniqueDeals = allDeals.filter((d) => {
-    const key = `${d.origin}_${d.city}`;
+    const key = `${d.origin}_${d.city}_${d.departureDate}_${d.price}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  const finalDeals = uniqueDeals;
-
-  if (!finalDeals.length) {
+  if (!uniqueDeals.length) {
     console.log("No deals under €" + MAX_PRICE);
     return;
   }
 
-  const ts = Date.now();
   const batch = db.batch();
-  finalDeals.forEach((d) => {
-    const id = `${d.origin}_${d.city}_${d.price}_${ts}`;
-    batch.set(db.collection("deals").doc(id), {
-      ...d,
-      createdAt: Timestamp.fromMillis(ts),
-    });
-  });
+  for (const d of uniqueDeals) {
+    // Clé unique sans timestamp
+    const docId = `${d.origin}_${d.city}_${d.departureDate}_${d.price}`;
+    const ref = db.collection("deals").doc(docId);
+
+    batch.set(
+      ref,
+      {
+        ...d,
+        // date de la première insertion
+        firstSeen: Timestamp.now(),
+        // date de la mise à jour (chaque scrape)
+        lastUpdated: Timestamp.now(),
+      },
+      { merge: true }
+    );
+  }
 
   await batch.commit();
-  console.log(`${allDeals.length} deals saved to Firestore ✅`);
+  console.log(`${uniqueDeals.length} unique deals upserted to Firestore ✅`);
 
   // 🔥 LOG the scrape run
   await db.collection("logs").add({
     type: "scrape",
-    timestamp: Timestamp.fromMillis(ts),
-    count: allDeals.length,
+    timestamp: Timestamp.now(),
+    count: uniqueDeals.length,
   });
   console.log("Scrape logged");
 }
+
 
 run().catch(console.error);
