@@ -67,7 +67,7 @@ export default function Login() {
       className="max-w-md mx-auto p-6 space-y-4 text-center"
     >
       <h2 className="text-xl font-bold">
-        Se connecter / S'inscrire aux mails quotidiens de VolMagique
+        Se connecter / S'inscrire
       </h2>
       <input
         type="email"
@@ -77,7 +77,12 @@ export default function Login() {
         onChange={(e) => setEmail(e.target.value)}
         className="w-full p-2 border rounded"
       />
-      <Button type="submit">Envoyer le lien de connexion</Button>
+      <Button type="submit">Envoyer le lien</Button>
+      <p className="text-sm text-gray-500">
+        En vous connectant, vous allez recevoir un email avec un lien magique. Cliquez dessus pour vous connecter.
+        <br />
+        Si vous ne recevez pas l'email, vérifiez votre dossier spam ou essayez une autre adresse.
+      </p>
     </form>
   );
 }

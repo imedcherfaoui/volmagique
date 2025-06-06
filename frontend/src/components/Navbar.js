@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { auth } from "../firebase";
 import { Button } from "./ui/button";
+import { useTranslation } from "react-i18next";
+import { UserIcon } from "lucide-react";
 
 export default function Navbar() {
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { pathname } = useLocation();
@@ -22,37 +25,71 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm shadow-sm">
       <div className="container mx-auto flex items-center justify-between p-4">
-        <a href="/" className="font-bold text-xl">
-          VolMagique ✈️
-        </a>
+        <Link to={prefix} className="font-bold text-xl">
+          <img src="/bannerVM.png" alt="VolMagique" className="h-8" />
+        </Link>
         <div className="hidden md:flex gap-6 my-auto h-full items-center">
-          <a
-            href={`${prefix}#features`}
+          <Link
+            to={`${prefix}#features`}
             className="hover:text-indigo-600 font-medium"
           >
-            Fonctionnalités
-          </a>
-          <a
-            href={`${prefix}#pricing`}
+            {t("features")}
+          </Link>
+          <Link
+            to={`${prefix}#pricing`}
             className="hover:text-indigo-600 font-medium"
           >
-            Tarifs
-          </a>
-          <a href="/dashboard" className="hover:text-indigo-600 font-medium">
-            Vols à venir
-          </a>
-          {isAuthenticated && (
+            {t("tarifs")}
+          </Link>
+          <Link to="/dashboard" className="hover:text-indigo-600 font-medium">
+            {t("upcoming_flights")}
+          </Link>
+
+          {/* ─── BOUTONS BASCULE LANGUE ─── */}
+          <div className="flex justify-end space-x-2">
+            <button
+              className={`px-3 py-1 rounded ${
+                i18n.language === "fr"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-gray-200"
+              }`}
+              onClick={() => i18n.changeLanguage("fr")}
+            >
+              FR
+            </button>
+            <button
+              className={`px-3 py-1 rounded ${
+                i18n.language === "en"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-gray-200"
+              }`}
+              onClick={() => i18n.changeLanguage("en")}
+            >
+              EN
+            </button>
+          </div>
+          {isAuthenticated ? (
             <div className="space-x-2">
               <Button
                 variant="destructive"
                 onClick={() => {
                   auth.signOut();
-                  nav("/login");
+                  nav("/");
                 }}
               >
-                Déconnexion
+                {t("logout")}
               </Button>
             </div>
+          ) : (
+            <Button variant="indigowhite" onClick={() => nav("/login")}>
+              {t("login")}
+            </Button>
+          )}
+          {/* User Icon Link to /account */}
+          {isAuthenticated && (
+            <Link to="/account" className="hover:text-indigo-600 font-medium">
+              <UserIcon className="w-6 h-6 text-gray-700" />
+            </Link>
           )}
         </div>
         <button
@@ -79,40 +116,80 @@ export default function Navbar() {
 
       {/* Mobile drawer */}
       {open && (
-        <div className="md:hidden bg-white shadow-inner">
-          <a
-            href={`${prefix}#features`}
-            className="block px-4 py-2 hover:bg-gray-100"
-            onClick={() => setOpen(false)}
-          >
-            Fonctionnalités
-          </a>
-          <a
-            href={`${prefix}#pricing`}
-            className="block px-4 py-2 hover:bg-gray-100"
-            onClick={() => setOpen(false)}
-          >
-            Tarifs
-          </a>
-          <a
-            href="/dashboard"
-            className="block px-4 py-2 hover:bg-gray-100"
-            onClick={() => setOpen(false)}
-          >
-            Vols à venir
-          </a>
-          {isAuthenticated && (
-          <div className="px-4 py-2">
-            <Button
-              variant="destructive"
-              onClick={() => {
-                auth.signOut();
-                nav("/login");
-              }}
-            >
-              Déconnexion
-            </Button>
+        <div className="md:hidden bg-white shadow-inner border-b border-gray-500">
+          <div className="flex items-center justify-between px-4 mt-2 hover:bg-gray-100">
+            {isAuthenticated && (
+              <Link
+                to="/account"
+                className="flex items-end space-x-2 text-sm text-gray-700 hover:text-indigo-600"
+              >
+                <UserIcon className="w-6 h-6" />
+                <p>{t("account_title")}</p>
+              </Link>
+            )}
+            {/* ─── BOUTONS BASCULE LANGUE ─── */}
+            <div className="space-x-2">
+              <button
+                className={`px-2 py-1 rounded ${
+                  i18n.language === "fr"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-200"
+                }`}
+                onClick={() => i18n.changeLanguage("fr")}
+              >
+                FR
+              </button>
+              <button
+                className={`px-2 py-1 rounded ${
+                  i18n.language === "en"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-200"
+                }`}
+                onClick={() => i18n.changeLanguage("en")}
+              >
+                EN
+              </button>
+            </div>
           </div>
+          <Link
+            to={`${prefix}#features`}
+            className="block px-4 py-2 hover:bg-gray-100 ms-1 text-gray-700 hover:text-indigo-600"
+            onClick={() => setOpen(false)}
+          >
+            {t("features")}
+          </Link>
+          <Link
+            to={`${prefix}#pricing`}
+            className="block px-4 py-2 hover:bg-gray-100 ms-1 text-gray-700 hover:text-indigo-600"
+            onClick={() => setOpen(false)}
+          >
+            {t("tarifs")}
+          </Link>
+          <Link
+            to="/dashboard"
+            className="block px-4 py-2 hover:bg-gray-100 ms-1 text-gray-700 hover:text-indigo-600"
+            onClick={() => setOpen(false)}
+          >
+            {t("upcoming_flights")}
+          </Link>
+          {isAuthenticated ? (
+            <div className="py-2 ms-1">
+              <Button
+                variant="destructiveLink"
+                onClick={() => {
+                  auth.signOut();
+                  nav("/");
+                }}
+              >
+                {t("logout")}
+              </Button>
+            </div>
+          ) : (
+            <div className="px-4 py-2">
+              <Button variant="indigowhite" onClick={() => nav("/login")}>
+                {t("login")}
+              </Button>
+            </div>
           )}
         </div>
       )}

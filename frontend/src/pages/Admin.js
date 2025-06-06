@@ -9,12 +9,13 @@ const ADMIN_SECRET = process.env.REACT_APP_ADMIN_SECRET;
 
 export default function Admin() {
   const [subs, setSubs] = useState([]);
+  const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterTier, setFilterTier] = useState("all");
   const nav = useNavigate();
 
-  // Fetch subscribers once on mount
+  //  ––––– Fetch subscribers & errors une fois au montage –––––
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user || user.email !== "imadeddine300@hotmail.com") {
@@ -22,15 +23,25 @@ export default function Admin() {
         return;
       }
       try {
+        // 1) récupération des abonnés
         const res = await fetch(`${API}/subscribers`, {
           headers: { "x-admin-secret": ADMIN_SECRET },
         });
         if (!res.ok) throw new Error(await res.text());
         const { subscribers = [] } = await res.json();
         setSubs(subscribers);
+
+        // 2) récupération des dernières erreurs
+        const errRes = await fetch(`${API}/errors?limit=50`, {
+          headers: { "x-admin-secret": ADMIN_SECRET },
+        });
+        if (!errRes.ok) throw new Error(await errRes.text());
+        const { errors: errs = [] } = await errRes.json();
+        setErrors(errs);
       } catch (err) {
         console.error("Admin fetch error:", err);
         setSubs([]);
+        setErrors([]);
       } finally {
         setLoading(false);
       }
@@ -156,6 +167,42 @@ export default function Admin() {
           </tbody>
         </table>
       </div>
+
+      {/* ─── NOUVELLE SECTION “Erreurs” ─── */}
+      {errors.length > 0 && (
+        <div className="mt-8 bg-white rounded-lg shadow p-4">
+          <h2 className="text-xl font-semibold mb-2">Dernières erreurs</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full table-auto text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2 text-left">Type</th>
+                  <th className="p-2 text-left">Mode</th>
+                  <th className="p-2 text-left">Date</th>
+                  <th className="p-2 text-left">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {errors.map((e, i) => (
+                  <tr
+                    key={i}
+                    className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  >
+                    <td className="p-2 capitalize">{e.type}</td>
+                    <td className="p-2 capitalize">{e.mode || "-"}</td>
+                    <td className="p-2">
+                      {new Date(e.timestamp).toLocaleString()}
+                    </td>
+                    <td className="p-2 truncate max-w-xs" title={e.message}>
+                      {e.message}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

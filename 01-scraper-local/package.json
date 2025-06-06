@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@google-cloud/firestore": "^7.11.1",
+    "@google-cloud/monitoring": "^5.1.0",
     "@sendgrid/mail": "^8.1.5",
     "body-parser": "^2.2.0",
     "cheerio": "^1.0.0",

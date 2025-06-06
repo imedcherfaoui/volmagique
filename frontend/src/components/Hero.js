@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { auth } from "../firebase";
+import { useTranslation } from "react-i18next";
 
 export default function Hero() {
+  const { t } = useTranslation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -16,32 +18,45 @@ export default function Hero() {
   return (
     <section className="relative h-screen flex flex-col justify-center items-center text-center bg-gradient-to-br from-indigo-600 to-blue-500">
       <h1 className="text-5xl md:text-6xl font-extrabold text-white drop-shadow-lg">
-        Des vols pas chers, livrés chaque jour
+        {t("hero1")}
       </h1>
       <p className="mt-4 text-xl text-indigo-100 max-w-2xl">
-        Découvrez les meilleures affaires de dernière minute directement dans
-        votre boîte mail. Passez Premium pour ne rien manquer.
+        {t("hero2")} <span className="font-semibold text-xl">VolMagique</span>{" "}
+        {t("hero3")}
+        <span className="font-semibold text-yellow-300 mx-1">{t("hero4")}</span>
+        {t("hero5")}{" "}
+        <span className="font-semibold text-yellow-300 mx-1">{t("hero6")}</span>
+        <br />
+        {t("hero7")}
+        <br />
+        <span className="font-semibold text-yellow-300 mx-1">{t("hero8")}</span>
       </p>
-      <div className="mt-8 gap-4 grid grid-cols-1 md:grid-cols-3">
+      <div className="mt-8 gap-4 flex flex-wrap justify-center items-center">
         <Button
-          variant="premium"
-          onClick={() => (window.location.href = "/#pricing")}
+          variant="legendary"
+          size="lg"
+          className="text-lg"
+          onClick={() => (window.location.href = "/dashboard")}
         >
-          Voir les tarifs
+          {t("show_today_deals")}
         </Button>
         {!isAuthenticated && (
           <Button
             variant="indigowhite"
+            size="lg"
+            className="text-lg"
             onClick={() => (window.location.href = "/login")}
           >
-            Se connecter
+            {t("login")}
           </Button>
         )}
         <Button
-          variant="legendary"
-          onClick={() => (window.location.href = "/dashboard")}
+          variant="premium"
+          size="lg"
+          className="text-lg"
+          onClick={() => (window.location.href = "/#pricing")}
         >
-          Voir les offres d'aujourd'hui
+          {t("show_pricing")}
         </Button>
       </div>
     </section>

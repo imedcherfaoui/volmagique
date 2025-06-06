@@ -5,8 +5,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET, {
 
 const session = await stripe.checkout.sessions.create({
   mode: "subscription",
-  line_items: [{ price: "price_1RTldALKea6PsY5cG45GTkrG", quantity: 1 }],
-  success_url: "https://volmagique.com/thanks",
-  cancel_url: "https://volmagique.com/cancel",
+  line_items: [{ price: "price_1RWpIHLKea6PsY5cMUZXU2SE", quantity: 1 }],
+  success_url: "https://volmagique.com/",
+  cancel_url: "https://volmagique.com/",
 });
 console.log(session.url);

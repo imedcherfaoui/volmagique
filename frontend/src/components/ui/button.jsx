@@ -19,11 +19,15 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        indigowhite: "bg-indigo-100 text-indigo-800 shadow-sm hover:bg-indigo-200",
+        indigowhite:
+          "bg-indigo-100 text-indigo-800 shadow-sm hover:bg-indigo-200",
         legendary:
           "bg-purple-100 text-purple-800 shadow-sm hover:bg-purple-200",
-        premium:
-          "bg-yellow-100 text-yellow-800 shadow-sm hover:bg-yellow-200",
+        premium: "bg-yellow-100 text-yellow-800 shadow-sm hover:bg-yellow-200",
+        premiumLink:
+          "text-yellow-800 shadow-sm hover:bg-yellow-200 underline-offset-4 hover:underline",
+        destructiveLink:
+          "text-red-500 shadow-sm hover:bg-red-100 underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2",

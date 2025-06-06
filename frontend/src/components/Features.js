@@ -1,26 +1,38 @@
-const feats = [
-  {
-    icon: "⭐️",
-    title: "Premium Deals",
-    text: "Top 10 vols & alertes à venir",
-  },
-  { icon: "⚡", title: "Fast & Free", text: "Emails instantanés, aucun coût" },
-  {
-    icon: "🔒",
-    title: "Secure",
-    text: "Données protégées, confidentialité assurée",
-  },
-  {
-    icon: "📈",
-    title: "Data-Driven",
-    text: "Analyses approfondies pour des décisions éclairées",
-  },
-];
+import { useTranslation } from "react-i18next";
+
+
 export default function Features() {
+  const { t } = useTranslation();
+
+  const feats = [
+    {
+      icon: "⭐️",
+      title: t("feature1_title"),
+      text: t("feature1_text"),
+    },
+    {
+      icon: "⚡",
+      title: t("feature2_title"),
+      text: t("feature2_text"),
+    },
+    {
+      icon: "🔒",
+      title: t("feature3_title"),
+      text: t("feature3_text"),
+    },
+    {
+      icon: "📈",
+      title: t("feature4_title"),
+      text: t("feature4_text"),
+    },
+  ];
+
   return (
     <section id="features" className="py-16 bg-gray-50">
       <div className="container mx-auto text-center">
-        <h2 className="text-3xl font-bold mb-8">Pourquoi VolMagique ?</h2>
+        <h2 className="text-3xl font-bold mb-8">
+          {t("why_choose_volmagique")}
+        </h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {feats.map(({ icon: Icon, title, text }) => (
             <div
